@@ -5,7 +5,7 @@
      ╚████╔╝ ██║   ██║██║     ███████║██║        ██║   
       ╚██╔╝  ██║   ██║██║     ██╔══██║██║        ██║   
        ██║   ╚██████╔╝███████╗██║  ██║╚██████╗   ██║   
-       ╚═╝    ╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝   ╚═╝ 
+       ╚═╝    ╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝   ╚═╝   
 ```
 
 A simple, fully convolutional model for real-time instance segmentation. This is the code for [our paper](https://arxiv.org/abs/1904.02689), and for the forseeable future is still in development.
@@ -178,3 +178,10 @@ If you use YOLACT or this code base in your work, please cite
 
 # Contact
 For questions about our paper or code, please contact [Daniel Bolya](mailto:dbolya@ucdavis.edu).
+
+
+# Extra comments in this repository
+
+Add crop_img.py to crop the images with the most confident object (used for person detection) and output to file.
+
+Additionally, it is proved that this repository can work on Microsoft Windows 10 with python 3.7.3 and pytorch 1.1 with cuda 10.0.

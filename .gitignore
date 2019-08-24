@@ -152,3 +152,4 @@ scripts/aws3/
 data/config_dev.py
 data/coco/
 data/sbd/
+cropped_img/
