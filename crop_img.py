@@ -43,7 +43,7 @@ def parse_args(argv=None):
     parser.add_argument('--trained_model',
                         default='weights/yolact_resnet50_54_800000.pth', type=str,
                         help='Trained state_dict file path to open. If "interrupt", this will open the interrupt file.')
-    parser.add_argument('--top_k', default=10, type=int,
+    parser.add_argument('--top_k', default=15, type=int,
                         help='Further restrict the number of predictions to parse')
     parser.add_argument('--cuda', default=True, type=str2bool,
                         help='Use cuda to evaulate model')
@@ -95,11 +95,12 @@ def parse_args(argv=None):
                         help='Outputs stuff for scripts/compute_mask.py.')
     parser.add_argument('--no_crop', default=False, dest='crop', action='store_false',
                         help='Do not crop output masks with the predicted bounding box.')
-    # parser.add_argument('--image', default="img/c1s4p4a3_33.jpg:results/output_image.png", type=str, # 简单图像测试
+    # parser.add_argument('--image', default="img/c1s4p4a3_33.jpg:output_image.png", type=str, # 简单图像测试
     # parser.add_argument('--image', default="img/c1s1p4a1_17.jpg:output.png", type=str, # 困难图像测试
+    # parser.add_argument('--image', default="img/c1s1p2a2_17.jpg:output.png", type=str, # 困难图像测试 person
     parser.add_argument('--image', default=None, type=str,
                         help='A path to an image to use for display.')
-    parser.add_argument('--images', default="img:cropped_img", type=str,
+    parser.add_argument('--images', default="img:cropped_img", type=str,  # 测试整个数据集
     # parser.add_argument('--images', default=None, type=str,
                         help='An input folder of images and output folder to save detected images. Should be in the format input->output.')
     parser.add_argument('--video', default=None, type=str,
@@ -158,6 +159,8 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
         # print(classes) # 类别说明 class 0: person, class 2: car
         # print(scores)
         # print(boxes)
+
+        """
         index_person = 0
         person_found = True
         # 遍历类别数组，如果遇到person就跳出
@@ -181,6 +184,36 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
             # print(masks.shape) # torch.Size([10, 480, 360])
             masks_all = masks
             masks = masks_all[index_person]
+        """
+        # 之前的方法有个BUG，就是对小person的score大于主要person时，输出错误的结果，修改如下
+        # 定义变量area_b，框的面积
+        person_index = (classes == 0)
+        # person_index表示了第几个框是否是person类别
+        if person_index.any():
+            # 存在person这个类别
+            # 如果只检测到1个人，直接取这个人就可以
+            classes = classes[person_index]
+            scores = scores[person_index]
+            boxes = boxes[person_index]
+            masks = masks[person_index]
+            if (person_index.sum() > 1):
+                # 检测到多个人，需要取最大面积框
+                # 之前已经把person类过滤出来了，还需要逐个算面积
+                area = classes
+                for i in range(person_index.sum()):
+                    box = boxes[i]
+                    area[i] = (box[2] - box[0]) * (box[3] - box[1])
+                # 最后再从person这类里面的框中挑选出最大面积的那个
+                person_index = (area == area.max())
+                classes = classes[person_index]
+                scores = scores[person_index]
+                boxes = boxes[person_index]
+                masks = masks[person_index]
+            num_dets_to_consider = 1
+        else:
+            # 没有person类
+            print('----- No person -----')
+            num_dets_to_consider = 0
         # raise Exception("Keyboard~")
 
 
@@ -222,8 +255,9 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
         # After this, mask is of size [num_dets, h, w, 1]
         # 这里需要删掉第一个维度
         # masks = masks[:num_dets_to_consider, :, :, None]
+        # print(masks.shape)    # torch.Size([1, 480, 360])
         if (num_dets_to_consider):
-            masks = masks[:, :, None]
+            masks = masks[:, :, :, None]
         else:
             masks = []
         # debug settings
@@ -237,27 +271,42 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
         # cv2.imwrite('test.png', mask_img)
         
         mask_img = (masks * 255).byte().cpu().numpy()
+        # print(masks.shape)
         # print(mask_img.shape)     # (480, 360, 1)
         # 这里需要删掉第一个维度
-        mask_img = mask_img[:, :, 0]
+        mask_img = mask_img[0, :, :, 0]
         
         # Prepare the RGB images for each mask given their color (size [num_dets, h, w, 1])
         colors = torch.cat([get_color(j, on_gpu=img_gpu.device.index).view(1, 1, 1, 3) for j in range(num_dets_to_consider)], dim=0)
-        masks_color = masks.repeat(1, 1, 1, 3) * colors * mask_alpha
-
+        # debug
+        # print(masks.repeat(1, 1, 1, 3).shape)
+        # print(colors.shape)     # torch.Size([1, 1, 1, 3])
+        # masks_color = masks.repeat(1, 1, 1, 3) * colors * mask_alpha
+        # print(np.max(masks_color.cpu().numpy()))
+        
         # This is 1 everywhere except for 1-mask_alpha where the mask is
         inv_alph_masks = masks * (-mask_alpha) + 1
         
         # I did the math for this on pen and paper. This whole block should be equivalent to:
         #    for j in range(num_dets_to_consider):
         #        img_gpu = img_gpu * inv_alph_masks[j] + masks_color[j]
-        masks_color_summand = masks_color[0]
+
+        # 这里的benchsize全都改成1了
+        masks_color = masks.repeat(1, 1, 1, 3) * colors * mask_alpha # 注意这个时候还是float小数
+
+        # 这句不用管，反正执行不到，无视就行
         if num_dets_to_consider > 1:
             inv_alph_cumul = inv_alph_masks[:(num_dets_to_consider-1)].cumprod(dim=0)
             masks_color_cumul = masks_color[1:] * inv_alph_cumul
             masks_color_summand += masks_color_cumul.sum(dim=0)
 
+        masks_color_summand = masks_color[0]
         img_gpu = img_gpu * inv_alph_masks.prod(dim=0) + masks_color_summand
+        # debug看一下图像有没有问题，看完再注释掉
+        # cv2.namedWindow('Debug', cv2.WINDOW_AUTOSIZE)
+        # cv2.imshow('Debug', img_gpu.cpu().numpy())
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()   # --- 貌似一直到这都没毛病的~
         
     # Then draw the stuff that needs to be done on the cpu
     # Note, make sure this is a uint8 tensor or opencv will not anti alias text for whatever reason
@@ -290,9 +339,15 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
                 cv2.rectangle(img_numpy, (x1, y1), (x1 + text_w, y1 - text_h - 4), color, -1)
                 cv2.putText(img_numpy, text_str, text_pt, font_face, font_scale, text_color, font_thickness, cv2.LINE_AA)
     
-    img_crop = img.cpu().numpy()
+    img_crop = img.byte().cpu().numpy()
+    # print(np.max(mask_img))
     for i in range(3):
         img_crop[:,:,i] = img_crop[:,:,i] * (mask_img // 255)
+    # debug看一下图像有没有问题，看完再注释掉
+    # cv2.namedWindow('Debug', cv2.WINDOW_AUTOSIZE)
+    # cv2.imshow('Debug', img_crop)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
     return img_numpy, mask_img, img_crop
 
 def prep_benchmark(dets_out, h, w):

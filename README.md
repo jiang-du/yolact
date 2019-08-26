@@ -4,22 +4,24 @@
 
 - 图像中只对人进行抠图，即`class`必须为"person"时才可以工作
 
-- 对于图像中有多个人的情况，本程序自动选择`score`最高的那个
+- 对于图像中有多个人的情况，本程序自动选择框的面积最大的那个(而不是`score`最高)
 
->具体使用方法如下：
->
+具体使用方法如下：
+
 >把图像放在`images`文件夹中，打开Anaconda Prompt，输入：
 >
 >```
 >python crop_img.py
 >```
 >
->然后等待程序运行完成后从cropped_img文件夹里找到输出结果。
+>然后等待程序运行完成后从`cropped_img`文件夹里找到输出结果。
+>
+>此外也可以支持高端操作，即crop_img.py中的输入参数继承了eval.py，但是不一定保证生效，具体的参考代码的中文注释。
 
 程序运行环境：
 
 ```
-Microsoft Windows 10 + Anaconda + Python 3.7.3 + Cuda 10.0 + Pytorch 1.1
+Microsoft Windows 10 + Anaconda + Python 3.7.3 + Cuda 10.0 + Pytorch 1.2
 ```
 
 【YOLACT原始程序的介绍】
@@ -109,24 +111,24 @@ python eval.py --trained_model=weights/yolact_base_54_800000.pth --benchmark --m
 ## Images
 ```Shell
 # Display qualitative results on the specified image.
-python eval.py --trained_model=weights/yolact_base_54_800000.pth --score_threshold=0.3 --top_k=100 --image=my_image.png
+python eval.py --trained_model=weights/yolact_resnet50_54_800000.pth --score_threshold=0.3 --top_k=100 --image=images/c1s2p6a3_01.jpg
 
 # Process an image and save it to another file.
-python eval.py --trained_model=weights/yolact_base_54_800000.pth --score_threshold=0.3 --top_k=100 --image=input_image.png:output_image.png
+python eval.py --trained_model=weights/yolact_resnet50_54_800000.pth --score_threshold=0.3 --top_k=100 --image=input_image.png:output_image.png
 
 # Process a whole folder of images.
-python eval.py --trained_model=weights/yolact_base_54_800000.pth --score_threshold=0.3 --top_k=100 --images=path/to/input/folder:path/to/output/folder
+python eval.py --trained_model=weights/yolact_resnet50_54_800000.pth --score_threshold=0.3 --top_k=100 --images=path/to/input/folder:path/to/output/folder
 ```
 ## Video
 ```Shell
 # Display a video in real-time. "--video_multiframe" will process that many frames at once for improved performance.
-python eval.py --trained_model=weights/yolact_base_54_800000.pth --score_threshold=0.3 --top_k=100 --video_multiframe=2 --video=my_video.mp4
+python eval.py --trained_model=weights/yolact_resnet50_54_800000.pth --score_threshold=0.3 --top_k=100 --video_multiframe=2 --video=my_video.mp4
 
 # Display a webcam feed in real-time. If you have multiple webcams pass the index of the webcam you want instead of 0.
-python eval.py --trained_model=weights/yolact_base_54_800000.pth --score_threshold=0.3 --top_k=100 --video_multiframe=2 --video=0
+python eval.py --trained_model=weights/yolact_resnet50_54_800000.pth --score_threshold=0.3 --top_k=100 --video_multiframe=2 --video=0
 
 # Process a video and save it to another file. This is unoptimized.
-python eval.py --trained_model=weights/yolact_base_54_800000.pth --score_threshold=0.3 --top_k=100 --video=input_video.mp4:output_video.mp4
+python eval.py --trained_model=weights/yolact_resnet50_54_800000.pth --score_threshold=0.3 --top_k=100 --video=input_video.mp4:output_video.mp4
 ```
 As you can tell, `eval.py` can do a ton of stuff. Run the `--help` command to see everything it can do.
 ```Shell
