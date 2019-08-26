@@ -43,7 +43,7 @@ def parse_args(argv=None):
     parser.add_argument('--trained_model',
                         default='weights/yolact_resnet50_54_800000.pth', type=str,
                         help='Trained state_dict file path to open. If "interrupt", this will open the interrupt file.')
-    parser.add_argument('--top_k', default=1, type=int,
+    parser.add_argument('--top_k', default=10, type=int,
                         help='Further restrict the number of predictions to parse')
     parser.add_argument('--cuda', default=True, type=str2bool,
                         help='Use cuda to evaulate model')
@@ -54,8 +54,10 @@ def parse_args(argv=None):
     parser.add_argument('--display_bboxes', default=False, type=str2bool,
                         help='Whether or not to display bboxes around masks')
     parser.add_argument('--display_text', default=False, type=str2bool,
+    # parser.add_argument('--display_text', default=True, type=str2bool,
                         help='Whether or not to display text (class [score])')
     parser.add_argument('--display_scores', default=False, type=str2bool,
+    # parser.add_argument('--display_scores', default=True, type=str2bool,
                         help='Whether or not to display scores in addition to classes')
     parser.add_argument('--display', dest='display', action='store_true',
                         help='Display qualitative results instead of quantitative ones.')
@@ -93,10 +95,12 @@ def parse_args(argv=None):
                         help='Outputs stuff for scripts/compute_mask.py.')
     parser.add_argument('--no_crop', default=False, dest='crop', action='store_false',
                         help='Do not crop output masks with the predicted bounding box.')
-    # parser.add_argument('--image', default="img/c1s4p4a3_33.jpg:results/output_image.png", type=str,
+    # parser.add_argument('--image', default="img/c1s4p4a3_33.jpg:results/output_image.png", type=str, # 简单图像测试
+    # parser.add_argument('--image', default="img/c1s1p4a1_17.jpg:output.png", type=str, # 困难图像测试
     parser.add_argument('--image', default=None, type=str,
                         help='A path to an image to use for display.')
     parser.add_argument('--images', default="img:cropped_img", type=str,
+    # parser.add_argument('--images', default=None, type=str,
                         help='An input folder of images and output folder to save detected images. Should be in the format input->output.')
     parser.add_argument('--video', default=None, type=str,
                         help='A path to a video to evaluate on. Passing in a number will use that index webcam.')
@@ -148,13 +152,46 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
         if cfg.eval_mask_branch:
             # Masks are drawn on the GPU, so don't copy
             masks = t[3][:args.top_k]
+            # 这里面取了最高分的k个，由传入参数设定
         classes, scores, boxes = [x[:args.top_k].cpu().numpy() for x in t[:3]]
+        # 获取到了最高k个的类别、分数、框，因此可以在这里进行修改
+        # print(classes) # 类别说明 class 0: person, class 2: car
+        # print(scores)
+        # print(boxes)
+        index_person = 0
+        person_found = True
+        # 遍历类别数组，如果遇到person就跳出
+        while (classes[index_person]):
+            # 这样当class是0的时候，检测的就是person，就记录下index
+            index_person += 1
+            # 如果整个图片都没找到person
+            if (index_person == args.top_k):
+                person_found = False
+                break
+        if (not person_found):
+            print('----- No person -----')
+            num_dets_to_consider = 0
+        else:
+            # 这里加入了一个修改，把除了person之外的其他检测结果屏蔽掉
+            classes_all, scores_all, boxes_all = classes, scores, boxes
+            classes = classes_all[index_person]
+            scores = scores_all[index_person]
+            boxes = boxes_all[index_person]
+            num_dets_to_consider = 1
+            # print(masks.shape) # torch.Size([10, 480, 360])
+            masks_all = masks
+            masks = masks_all[index_person]
+        # raise Exception("Keyboard~")
 
+
+    # 因为只保留一个框，因此不进行阈值测试
+    """
     num_dets_to_consider = min(args.top_k, classes.shape[0])
     for j in range(num_dets_to_consider):
         if scores[j] < args.score_threshold:
             num_dets_to_consider = j
             break
+    """
     
     if num_dets_to_consider == 0:
         # No detections found so just output the original image
@@ -183,7 +220,12 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
     # I wish I had access to OpenGL or Vulkan but alas, I guess Pytorch tensor operations will have to suffice
     if args.display_masks and cfg.eval_mask_branch:
         # After this, mask is of size [num_dets, h, w, 1]
-        masks = masks[:num_dets_to_consider, :, :, None]
+        # 这里需要删掉第一个维度
+        # masks = masks[:num_dets_to_consider, :, :, None]
+        if (num_dets_to_consider):
+            masks = masks[:, :, None]
+        else:
+            masks = []
         # debug settings
         # print(masks.shape)        # torch.Size([1, 480, 360, 1])
         # mask_img = np.reshape(masks.cpu().numpy(), [480, 360])
@@ -195,7 +237,9 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
         # cv2.imwrite('test.png', mask_img)
         
         mask_img = (masks * 255).byte().cpu().numpy()
-        mask_img = mask_img[0, :, :, 0]
+        # print(mask_img.shape)     # (480, 360, 1)
+        # 这里需要删掉第一个维度
+        mask_img = mask_img[:, :, 0]
         
         # Prepare the RGB images for each mask given their color (size [num_dets, h, w, 1])
         colors = torch.cat([get_color(j, on_gpu=img_gpu.device.index).view(1, 1, 1, 3) for j in range(num_dets_to_consider)], dim=0)
@@ -222,15 +266,16 @@ def prep_display(dets_out, img, h, w, undo_transform=True, class_color=False, ma
     
     if args.display_text or args.display_bboxes:
         for j in reversed(range(num_dets_to_consider)):
-            x1, y1, x2, y2 = boxes[j, :]
-            color = get_color(j)
-            score = scores[j]
+            # 这个循环中的boxes, scores, classes都要减少一个维度
+            x1, y1, x2, y2 = boxes[:]
+            color = get_color(0)
+            score = scores
 
             if args.display_bboxes:
                 cv2.rectangle(img_numpy, (x1, y1), (x2, y2), color, 1)
 
             if args.display_text:
-                _class = cfg.dataset.class_names[classes[j]]
+                _class = cfg.dataset.class_names[classes]
                 text_str = '%s: %.2f' % (_class, score) if args.display_scores else _class
 
                 font_face = cv2.FONT_HERSHEY_DUPLEX

@@ -1,4 +1,31 @@
+# 基于**YOLACT**的自动抠图程序
+
+本程序在YOLACT原版代码的基础上，开发了图像抠图功能，并做了以下限制：
+
+- 图像中只对人进行抠图，即`class`必须为"person"时才可以工作
+
+- 对于图像中有多个人的情况，本程序自动选择`score`最高的那个
+
+>具体使用方法如下：
+>
+>把图像放在`images`文件夹中，打开Anaconda Prompt，输入：
+>
+>```
+>python crop_img.py
+>```
+>
+>然后等待程序运行完成后从cropped_img文件夹里找到输出结果。
+
+程序运行环境：
+
+```
+Microsoft Windows 10 + Anaconda + Python 3.7.3 + Cuda 10.0 + Pytorch 1.1
+```
+
+【YOLACT原始程序的介绍】
+
 # **Y**ou **O**nly **L**ook **A**t **C**oefficien**T**s
+
 ```
     ██╗   ██╗ ██████╗ ██╗      █████╗  ██████╗████████╗
     ╚██╗ ██╔╝██╔═══██╗██║     ██╔══██╗██╔════╝╚══██╔══╝
@@ -178,10 +205,3 @@ If you use YOLACT or this code base in your work, please cite
 
 # Contact
 For questions about our paper or code, please contact [Daniel Bolya](mailto:dbolya@ucdavis.edu).
-
-
-# Extra comments in this repository
-
-Add crop_img.py to crop the images with the most confident object (used for person detection) and output to file.
-
-Additionally, it is proved that this repository can work on Microsoft Windows 10 with python 3.7.3 and pytorch 1.1 with cuda 10.0.
