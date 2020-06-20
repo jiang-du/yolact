@@ -8,7 +8,7 @@
 
 具体使用方法如下：
 
->把图像放在`images`文件夹中，打开Anaconda Prompt，输入：
+>把图像放在`img`文件夹中(没有的话自己新建`img`和`cropped_img`这两个文件夹)，打开Anaconda Prompt，输入：
 >
 >```
 >python crop_img.py
@@ -21,7 +21,7 @@
 程序运行环境：
 
 ```
-Microsoft Windows 10 + Anaconda + Python 3.7.3 + Cuda 10.0 + Pytorch 1.2
+Microsoft Windows 10 + Anaconda + Python 3.8 + Cuda 10.2 + Pytorch 1.5
 ```
 
 【YOLACT原始程序的介绍】
